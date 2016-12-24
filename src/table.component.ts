@@ -335,15 +335,7 @@ export class TableComponent {
     this.data = data;
     this.columns = columns;
     this.filters = Array(columns.length).fill('');
-    console.profile("fun1");
-    this.processedData = this.processData1(data, columns);
-    console.profileEnd()
-    console.profile("fun2");
-    this.processData2(data, columns);
-    console.profileEnd()
-    console.profile("fun3");
-    this.processData3(data, columns);
-    console.profileEnd()
+    this.processedData = this.processData(data, columns);
     this.selectionSet.clear();
     this.updateSortingFilteringAndPaging();
 
@@ -435,74 +427,7 @@ export class TableComponent {
    * potential table rows, so we can perform sorting and filtering operations on
    * the future content.
    */
-  private processData1<T>(data: T[], columns: Column<T>[]): Row<T>[] {
-    const element = document.createElement('DIV');
-    const processedData: Row<T>[] = [];
-    let rowKey = 0;
-    for (let datum of data) {
-      const row: Row<T> = {
-        textContent: [],
-        key: rowKey++,
-        data: datum
-      };
-      for (let column of columns) {
-        if (isComponentColumn(column)) {
-          const factory = this.factoryResolver.resolveComponentFactory(column.component);
-          const componentRef = factory.create(this.injector, null, element);
-          componentRef.instance.setData(datum);
-          componentRef.changeDetectorRef.detectChanges();
-          row.textContent.push(element.textContent);
-          componentRef.destroy();
-        } else if (isFunctionColumn(column)) {
-          row.textContent.push(String(column.func(datum)));
-        } else {
-          throw new Error('Assertion error: Unexpected column object.');
-        }
-      }
-      processedData.push(row);
-    }
-    return processedData;
-  }
-
-private processData3<T>(data: T[], columns: Column<T>[]): Row<T>[] {
-    const processedData: Row<T>[] = [];
-    let rowKey = 0;
-    const genFunctions = [];
-    const componentRefs: Map<Column<T>, ComponentRef<ColumnComponent<T>>> = new Map();
-    const element = document.createElement('DIV');
-    for (let column of columns) {
-      if (isComponentColumn(column)) {
-        const factory = this.factoryResolver.resolveComponentFactory(column.component);
-        const componentRef = factory.create(this.injector, null, element);
-        componentRefs.set(column, componentRef);
-      }
-    }
-    for (let datum of data) {
-      const row: Row<T> = {
-        textContent: [],
-        key: rowKey++,
-        data: datum
-      };
-      for (let column of columns) {
-        if (isComponentColumn(column)) {
-          const cRef = componentRefs.get(column);
-          cRef.instance.setData(datum);
-          cRef.changeDetectorRef.detectChanges();
-          row.textContent.push(element.textContent);
-        } else if (isFunctionColumn(column)) {
-          row.textContent.push(String(column.func(datum)));
-        } else {
-          throw new Error('Assertion error: Unexpected column object.');
-        }
-      }
-      processedData.push(row);
-
-    }
-    //componentRefs.forEach((ref) => ref.destroy());
-    return processedData;
-  }
-
-  private processData2<T>(data: T[], columns: Column<T>[]): Row<T>[] {
+  private processData<T>(data: T[], columns: Column<T>[]): Row<T>[] {
     const processedData: Row<T>[] = [];
     let rowKey = 0;
     const genFunctions = [];
