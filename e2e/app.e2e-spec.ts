@@ -1,14 +1,15 @@
-import { AngularQuickstartPage } from './app.po';
+import { browser, element, by } from 'protractor';
 
-describe('angular-quickstart App', function() {
-  let page: AngularQuickstartPage;
+describe('QuickStart E2E Tests', function () {
 
-  beforeEach(() => {
-    page = new AngularQuickstartPage();
+  let expectedMsg = 'Hello Angular';
+
+  beforeEach(function () {
+    browser.get('');
   });
 
-  it('should display message saying app works', () => {
-    page.navigateTo();
-    expect(page.getParagraphText()).toEqual('app works!');
+  it('should display: ' + expectedMsg, function () {
+    expect(element(by.css('h1')).getText()).toEqual(expectedMsg);
   });
+
 });
