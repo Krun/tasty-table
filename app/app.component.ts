@@ -27,8 +27,8 @@ export class Column3 extends BasicColumnComponent<DataType> { }
     <h1>Responsive Data Tables</h1>
     Number of data rows: <input [(ngModel)]="numberOfRows" (ngModelChange)="updateData()" type="number">
     <label> With checkboxes <input type="checkbox" [(ngModel)]="selectable"></label>
-    <data-table [title]="Example" [columns]="columns1" [data]="data" [selectable]="selectable" (selectionChange)="tableSelect($event)"></data-table>
-    <data-table [title]="Example2"></data-table>
+    <data-table title="Example" [columns]="columns1" [data]="data" [selectable]="selectable" (selectionChange)="tableSelect($event)"></data-table>
+    <data-table title="Example2"></data-table>
   `,
 })
 export class AppComponent {

@@ -430,7 +430,7 @@ export class TableComponent {
   private processData<T>(data: T[], columns: Column<T>[]): Row<T>[] {
     const processedData: Row<T>[] = [];
     let rowKey = 0;
-    const genFunctions = [];
+    const genFunctions: ((data: T) => string)[] = [];
     const componentRefs: ComponentRef<ColumnComponent<T>>[] = [];
     for (let column of columns) {
       if (isComponentColumn(column)) {
