@@ -1,7 +1,16 @@
 # Responsive data tables
 
+## Live demo
 See a live example of the prototype in:
 http://krun.github.io/tasty-tables/example.html
+
+## Usage example
+See:
+https://github.com/Krun/tasty-table/blob/master/app/app.component.ts
+
+For an example on how the table can be used.
+
+## Description
 
 This is a component for a data table which offers sorting and incremental search on all of 
 its columns.
