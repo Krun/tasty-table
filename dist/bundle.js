@@ -16,6 +16,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var core_1 = require('@angular/core');
 var table_component_1 = require('./table.component');
+/**
+ * Extending BasicColumnComponent lets you define a simple template
+ * that exports the data object in its 'data' member;
+ */
 var Column1 = (function (_super) {
     __extends(Column1, _super);
     function Column1() {
@@ -26,8 +30,11 @@ var Column1 = (function (_super) {
         __metadata('design:paramtypes', [])
     ], Column1);
     return Column1;
-}(table_component_1.BasicColumnComponent));
+}(table_component_1.ColumnComponent));
 exports.Column1 = Column1;
+/**
+ * Columns can have complex templates to represent any kind of data type.
+ */
 var Column2 = (function (_super) {
     __extends(Column2, _super);
     function Column2() {
@@ -35,62 +42,71 @@ var Column2 = (function (_super) {
     }
     Column2 = __decorate([
         core_1.Component({
-            template: "\n    <ul>\n      <li *ngFor=\"let s of data.third\">{{s}}</li>\n    </ul>"
+            template: "\n  <p>{{data.third.toString()}}</p>\n  <ul><li *ngFor=\"let s of data.third\">{{s}}</li></ul>"
         }), 
         __metadata('design:paramtypes', [])
     ], Column2);
     return Column2;
-}(table_component_1.BasicColumnComponent));
+}(table_component_1.ColumnComponent));
 exports.Column2 = Column2;
-var Column3 = (function (_super) {
-    __extends(Column3, _super);
+/**
+ * Columns can define any kind of data transformations.
+ */
+var Column3 = (function () {
     function Column3() {
-        _super.apply(this, arguments);
     }
+    Object.defineProperty(Column3.prototype, "myData", {
+        get: function () {
+            return {
+                a: this.data.first * 2,
+                b: String(this.data.first)
+            };
+        },
+        enumerable: true,
+        configurable: true
+    });
     Column3 = __decorate([
-        core_1.Component({ template: '<p>{{data.first}} - {{data.second}}</p>' }), 
+        core_1.Component({ template: '<p>{{myData.a}} - {{myData.b}}</p>' }), 
         __metadata('design:paramtypes', [])
     ], Column3);
     return Column3;
-}(table_component_1.BasicColumnComponent));
+}());
 exports.Column3 = Column3;
 var AppComponent = (function () {
     function AppComponent(changeDetector) {
         this.changeDetector = changeDetector;
         this.selectable = true;
         this.numberOfRows = 5000;
-        this.columns1 = [
-            { title: "Column 1", component: Column1, numeric: true },
-            { title: "Column 2", component: Column2 },
-            { title: "Column 3", component: Column3 },
-            { title: "Column 4", func: function (x) { return x.second; } },
-            { title: "Column 5", func: function (x) { return x.first; } },
-        ];
-        this.columns2 = [
-            { title: "Column 1", func: function (x) { return String(x.first); } },
-            { title: "Column 2", func: function (x) { return x.second; } }
-        ];
+        this.tableModel = {
+            columns: [
+                // By setting numeric: true the column will be sorted numerically
+                { title: "Column 1", component: Column1, numeric: true },
+                { title: "Column 2", component: Column2 },
+                { title: "Column 3", component: Column3 },
+                // For simple data types, instead of a template component we can simply define
+                // a function which will yield the cell content.
+                // This is way more efficient, by the way!
+                { title: "Column 4", func: function (x) { return x.second; } },
+                { title: "Column 5", func: function (x) { return x.first; } },
+            ],
+            data: []
+        };
     }
     AppComponent.prototype.tableSelect = function (event) {
+        // We can listen to selections in table rows.
         console.log(event);
     };
     AppComponent.prototype.ngAfterViewInit = function () {
         this.updateData();
     };
     AppComponent.prototype.updateData = function () {
-        this.data = Array(this.numberOfRows).fill(0).map(function (_, i) { return ({ first: i, second: "b" + (3000 - i), third: ["a" + i, "b" + i] }); });
+        this.tableModel.data = Array(this.numberOfRows).fill(0).map(function (_, i) { return ({ first: i, second: "b" + (3000 - i), third: ["a" + i, "b" + i] }); });
         this.changeDetector.detectChanges();
-        var tables = this.tableComponents.toArray();
-        tables[1].setData({ columns: this.columns1, data: this.data });
     };
-    __decorate([
-        core_1.ViewChildren(table_component_1.TableComponent), 
-        __metadata('design:type', core_1.QueryList)
-    ], AppComponent.prototype, "tableComponents", void 0);
     AppComponent = __decorate([
         core_1.Component({
             selector: 'my-app',
-            template: "\n    <h1>Responsive Data Tables</h1>\n    Number of data rows: <input [(ngModel)]=\"numberOfRows\" (ngModelChange)=\"updateData()\" type=\"number\">\n    <label> With checkboxes <input type=\"checkbox\" [(ngModel)]=\"selectable\"></label>\n    <data-table title=\"Example\" [columns]=\"columns1\" [data]=\"data\" [selectable]=\"selectable\" (selectionChange)=\"tableSelect($event)\"></data-table>\n    <data-table title=\"Example2\"></data-table>\n  ",
+            template: "\n    <h1>Responsive Data Tables</h1>\n    Number of data rows: <input [(ngModel)]=\"numberOfRows\" type=\"number\"><button (click)=\"updateData()\">update</button>\n    <label> With checkboxes <input type=\"checkbox\" [(ngModel)]=\"selectable\"></label>\n    <data-table title=\"Example\" [model]=\"tableModel\" [selectable]=\"selectable\" (selectionChange)=\"tableSelect($event)\"></data-table>\n  ",
         }), 
         __metadata('design:paramtypes', [core_1.ChangeDetectorRef])
     ], AppComponent);
@@ -151,19 +167,16 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var core_1 = require('@angular/core');
 /**
- * Base class for custom column components. It provides the basic boilerplate
- * needed for a component which exports the contained data from the "data"
- * property.
+ * Base column component. Any custom column component must extend or
+ * implement this class. Defines the member into which the cell data
+ * will be inserted and from which the template can read it.
  */
-var BasicColumnComponent = (function () {
-    function BasicColumnComponent() {
+var ColumnComponent = (function () {
+    function ColumnComponent() {
     }
-    BasicColumnComponent.prototype.setData = function (data) {
-        this.data = data;
-    };
-    return BasicColumnComponent;
+    return ColumnComponent;
 }());
-exports.BasicColumnComponent = BasicColumnComponent;
+exports.ColumnComponent = ColumnComponent;
 /**
  * Column component which can be used when the user doesn't need to define
  * a complex template, and a simple transformation function (from data object
@@ -172,25 +185,15 @@ exports.BasicColumnComponent = BasicColumnComponent;
 var FunctionColumnComponent = (function () {
     function FunctionColumnComponent() {
     }
-    FunctionColumnComponent.prototype.setData = function (data) {
-        this.dataInternal = data;
-    };
-    Object.defineProperty(FunctionColumnComponent.prototype, "transformFunction", {
-        set: function (func) {
-            this.func = func;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(FunctionColumnComponent.prototype, "data", {
+    Object.defineProperty(FunctionColumnComponent.prototype, "outputData", {
         get: function () {
-            return String(this.func(this.dataInternal));
+            return String(this.transformFunction(this.data));
         },
         enumerable: true,
         configurable: true
     });
     FunctionColumnComponent = __decorate([
-        core_1.Component({ template: "{{data}}" }), 
+        core_1.Component({ template: "{{outputData}}" }), 
         __metadata('design:paramtypes', [])
     ], FunctionColumnComponent);
     return FunctionColumnComponent;
@@ -221,14 +224,25 @@ var TableComponent = (function () {
         this.changeDetector = changeDetector;
         this.factoryResolver = factoryResolver;
         this.injector = injector;
-        // Ideally, there would be a class-level generic type for the type of the data
-        // contained in the table. This would make sure that the columns are always
-        // compatible with the inserted data. However, Angular2's AOT compiler does not
-        // support generic types in components (and no support seems to be planned). So
-        // we need to define these as 'any'. If support is included in the future, simply
-        // adding the generic <T> to the class and removing it from all methods would allow
-        // changing all these 'any' to 'T' so the table is properly typed.
         this.title = "";
+        /**
+         * The table model. Contains two members:
+         * <li>data: Data to render in the table as a list of objects. Each object corresponds
+         * to a row in the table, and each cell in the row will be rendered by applying
+         * a transformation to said object (which is defined by the column configuration).
+         * <li>columns: The column configuration for the table. Columns can be of two types: ComponentColumn
+         * or FunctionColumn. ComponentColumns contain an Angular template which will be
+         * rendered using the data object. FunctionColumns simply define a transformation function
+         * which will return the cell content when applied to the data object.
+         */
+        this.model = null;
+        // References to model.columns and model.data to check for changes.
+        this.oldColumns = [];
+        this.oldData = [];
+        /**
+         * Whether the rows of the table are selectable.
+         */
+        this.selectable = false;
         this.selectionChange = new core_1.EventEmitter();
         /**
          * Number of rows to show in each page.
@@ -276,18 +290,9 @@ var TableComponent = (function () {
          * Set of rows which are currently visible in the table.
          */
         this.pVisibleRows = [];
-        /**
-         * Whether the table data is currently being asynchronously loaded.
-         */
-        this.pLoading = false;
     }
     Object.defineProperty(TableComponent.prototype, "visibleRows", {
         get: function () { return this.pVisibleRows; },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(TableComponent.prototype, "loading", {
-        get: function () { return this.pLoading; },
         enumerable: true,
         configurable: true
     });
@@ -308,40 +313,17 @@ var TableComponent = (function () {
         enumerable: true,
         configurable: true
     });
-    TableComponent.prototype.ngAfterViewInit = function () {
-        if (this.columns && this.data) {
-            this.setData({ columns: this.columns, data: this.data });
+    TableComponent.prototype.ngAfterViewChecked = function () {
+        console.log('checked');
+        if (!this.model) {
+            return;
         }
-    };
-    TableComponent.prototype.ngOnChanges = function () {
-        if (this.columns && this.data) {
-            this.setData({ columns: this.columns, data: this.data });
+        if (this.model.columns !== this.oldColumns || this.model.data !== this.oldData) {
+            console.log('yas');
+            this.handleInputModelChanges();
         }
-    };
-    /**
-     * Sets the data and the column configuration in the table. Since
-     * components with generics are not supported by Angular, using
-     * this function instead of using binding to @Input members makes
-     * sure that the column configuration is compatible with the data.
-     */
-    TableComponent.prototype.setData = function (_a) {
-        var columns = _a.columns, data = _a.data;
-        this.pLoading = false;
-        this.data = data;
-        this.columns = columns;
-        this.filters = Array(columns.length).fill('');
-        this.processedData = this.processData(data, columns);
-        this.selectionSet.clear();
-        this.updateSortingFilteringAndPaging();
-    };
-    /**
-     * Async version of {@see setData}.
-     */
-    TableComponent.prototype.setDataAsync = function (_a) {
-        var _this = this;
-        var columns = _a.columns, promise = _a.promise;
-        this.pLoading = true;
-        promise.then(function (data) { return _this.setData({ columns: columns, data: data }); });
+        this.oldColumns = this.model.columns;
+        this.oldData = this.model.data;
     };
     /**
      * Whether the given row key is selected.
@@ -384,11 +366,19 @@ var TableComponent = (function () {
     TableComponent.prototype.handlePagingChanges = function () {
         this.updatePaging();
     };
+    TableComponent.prototype.handleInputModelChanges = function () {
+        this.sortingColumn = 0;
+        this.descending = false;
+        this.filters = Array(this.model.columns.length).fill('');
+        this.processedData = this.processModel(this.model);
+        this.selectionSet.clear();
+        this.updateSortingFilteringAndPaging();
+    };
     /**
      * Updates the view. Applies sorting, filtering and paging settings.
      */
     TableComponent.prototype.updateSortingFilteringAndPaging = function () {
-        TableComponent.sortData(this.processedData, this.sortingColumn, this.descending, this.columns[this.sortingColumn].numeric);
+        TableComponent.sortData(this.processedData, this.sortingColumn, this.descending, this.model.columns[this.sortingColumn].numeric);
         this.updateFilteringAndPaging();
     };
     /**
@@ -408,12 +398,11 @@ var TableComponent = (function () {
     };
     /**
      * Processes input data. Generates an internal representation of all the
-     * potential table rows, so we can perform sorting and filtering operations on
-     * the future content.
+     * table rows, so we can perform sorting and filtering operations on
+     * the generated content.
      */
-    TableComponent.prototype.processData = function (data, columns) {
-        var processedData = [];
-        var rowKey = 0;
+    TableComponent.prototype.processModel = function (_a) {
+        var data = _a.data, columns = _a.columns;
         var genFunctions = [];
         var componentRefs = [];
         var _loop_1 = function(column) {
@@ -423,7 +412,7 @@ var TableComponent = (function () {
                 var componentRef_1 = factory.create(this_1.injector, null, element_1);
                 componentRefs.push(componentRef_1);
                 var genFunction = function (data) {
-                    componentRef_1.instance.setData(data);
+                    componentRef_1.instance.data = data;
                     componentRef_1.changeDetectorRef.detectChanges();
                     return element_1.textContent;
                 };
@@ -442,18 +431,11 @@ var TableComponent = (function () {
             var column = columns_1[_i];
             _loop_1(column);
         }
-        var _loop_2 = function(datum) {
-            var row = {
-                textContent: genFunctions.map(function (func) { return func(datum); }),
-                key: rowKey++,
-                data: datum
-            };
-            processedData.push(row);
-        };
-        for (var _a = 0, data_1 = data; _a < data_1.length; _a++) {
-            var datum = data_1[_a];
-            _loop_2(datum);
-        }
+        var processedData = data.map(function (data, key) { return ({
+            textContent: genFunctions.map(function (func) { return func(data); }),
+            key: key,
+            data: data,
+        }); });
         componentRefs.forEach(function (ref) { return ref.destroy(); });
         return processedData;
     };
@@ -463,26 +445,25 @@ var TableComponent = (function () {
     TableComponent.prototype.paint = function (rows) {
         this.pVisibleRows = rows;
         this.changeDetector.detectChanges();
-        var insertPoints = this.insertPoints.toArray();
+        var insertPoints = this.insertPoints.toArray().reverse();
         insertPoints.forEach(function (insertPoint) { return insertPoint.viewContainerRef.clear(); });
-        var cellIndex = 0;
         for (var _i = 0, rows_1 = rows; _i < rows_1.length; _i++) {
             var row = rows_1[_i];
-            for (var _a = 0, _b = this.columns; _a < _b.length; _a++) {
+            for (var _a = 0, _b = this.model.columns; _a < _b.length; _a++) {
                 var column = _b[_a];
-                var insertPoint = insertPoints[cellIndex];
+                var insertPoint = insertPoints.pop();
                 var ref = void 0;
                 if (isComponentColumn(column)) {
                     var factory = this.factoryResolver.resolveComponentFactory(column.component);
                     var compRef = insertPoint.viewContainerRef.createComponent(factory);
-                    compRef.instance.setData(row.data);
+                    compRef.instance.data = row.data;
                     ref = compRef;
                 }
                 else if (isFunctionColumn(column)) {
                     var factory = this.factoryResolver.resolveComponentFactory(FunctionColumnComponent);
                     var compRef = insertPoint.viewContainerRef.createComponent(factory);
                     compRef.instance.transformFunction = column.func;
-                    compRef.instance.setData(row.data);
+                    compRef.instance.data = row.data;
                     ref = compRef;
                 }
                 else {
@@ -490,7 +471,6 @@ var TableComponent = (function () {
                 }
                 ref.changeDetectorRef.detectChanges();
                 ref.changeDetectorRef.detach();
-                cellIndex++;
             }
         }
     };
@@ -546,12 +526,8 @@ var TableComponent = (function () {
     ], TableComponent.prototype, "title", void 0);
     __decorate([
         core_1.Input(), 
-        __metadata('design:type', Array)
-    ], TableComponent.prototype, "data", void 0);
-    __decorate([
-        core_1.Input(), 
-        __metadata('design:type', Array)
-    ], TableComponent.prototype, "columns", void 0);
+        __metadata('design:type', Object)
+    ], TableComponent.prototype, "model", void 0);
     __decorate([
         core_1.Input(), 
         __metadata('design:type', Boolean)
@@ -568,7 +544,7 @@ var TableComponent = (function () {
         core_1.Component({
             selector: 'data-table',
             styles: ["\n    * {\n      font-family: sans-serif;\n    }\n    input {\n      border: 1px solid #ccc;\n    }\n    table {\n      border-collapse: collapse;\n      width: 100%;\n    }\n    td, th {\n      font-size: .9em;\n      border-top: 1px solid grey;\n      border-bottom: 1px solid grey;\n    }\n    .cell {\n      padding: 10px;\n    }\n    .cell >>> ul {\n      margin: 0;\n      padding: 0;\n    }\n    .wrapper {\n      border: 1px solid grey;\n      display: inline-block;\n    }\n    .filter {\n      width: 100px;\n    }\n    .pager {\n      width: 40px;\n    }\n  "],
-            template: "\n  <div><div class=\"wrapper\">\n  <h1>{{title}}</h1>\n  <table>\n    <tr>\n      <th *ngIf=\"selectable\"></th>\n      <th *ngFor=\"let column of columns; let i = index\" (click)=\"setSortingColumn(i)\">\n          <span *ngIf=\"isSortedByColumn(i)\" [textContent]=\"descending ? '\u25BC' : '\u25B2'\"></span>{{column.title}}\n      </th>\n    </tr>\n    <tr>\n      <td *ngIf=\"selectable\"></td>\n      <td *ngFor=\"let column of columns; let i = index\">\n        <input class=\"filter\" [(ngModel)]=\"filters[i]\" (ngModelChange)=\"handleFilterChanges()\">\n      </td>\n    </tr>\n    <tr *ngFor=\"let row of visibleRows\">\n      <td *ngIf=\"selectable\">\n        <input type=\"checkbox\" [checked]=\"isSelected(row.key)\" (change)=\"handleSelection(row.key)\">\n      </td>\n      <td *ngFor=\"let column of columns\">\n        <div class=\"cell\">\n          <template data-table-cell-insert-point></template>\n        </div>\n      </td>\n    </tr>\n  </table>\n  <input class=\"pager\" [(ngModel)]=\"pageSize\" (ngModelChange)=\"handlePagingChanges()\" type=\"number\">\n  rows per page |\n  <input class=\"pager\" [(ngModel)]=\"visiblePage\" (ngModelChange)=\"handlePagingChanges()\" type=\"number\">\n  of {{numberOfPages}} pages\n  </div></div>\n  ",
+            template: "\n  <div><div class=\"wrapper\">\n  <h1>{{title}}</h1>\n  <table>\n    <tr>\n      <th *ngIf=\"selectable\"></th>\n      <th *ngFor=\"let column of model.columns; let i = index\" (click)=\"setSortingColumn(i)\">\n          <span *ngIf=\"isSortedByColumn(i)\" [textContent]=\"descending ? '\u25B2' : '\u25BC'\"></span>{{column.title}}\n      </th>\n    </tr>\n    <tr>\n      <td *ngIf=\"selectable\"></td>\n      <td *ngFor=\"let column of model.columns; let i = index\">\n        <input class=\"filter\" [(ngModel)]=\"filters[i]\" (ngModelChange)=\"handleFilterChanges()\">\n      </td>\n    </tr>\n    <tr *ngFor=\"let row of visibleRows\">\n      <td *ngIf=\"selectable\">\n        <input type=\"checkbox\" [checked]=\"isSelected(row.key)\" (change)=\"handleSelection(row.key)\">\n      </td>\n      <td *ngFor=\"let column of model.columns\">\n        <div class=\"cell\">\n          <template data-table-cell-insert-point></template>\n        </div>\n      </td>\n    </tr>\n  </table>\n  <input class=\"pager\" [(ngModel)]=\"pageSize\" (ngModelChange)=\"handlePagingChanges()\" type=\"number\">\n  rows per page |\n  <input class=\"pager\" [(ngModel)]=\"visiblePage\" (ngModelChange)=\"handlePagingChanges()\" type=\"number\">\n  of {{numberOfPages}} pages\n  </div></div>\n  ",
         }), 
         __metadata('design:paramtypes', [core_1.ChangeDetectorRef, core_1.ComponentFactoryResolver, core_1.Injector])
     ], TableComponent);
