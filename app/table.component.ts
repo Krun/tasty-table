@@ -299,8 +299,13 @@ export class TableComponent {
 
   /** Public 1-based representation of the current page. */
   set visiblePage(visiblePage: number) {
-    if (visiblePage < 1 || visiblePage > this.numberOfPages) return;
-    this.page = visiblePage - 1;
+    if (visiblePage < 1) {
+      this.page = 0;
+    } else if (visiblePage > this.numberOfPages) {
+      this.page = this.numberOfPages - 1;
+    } else {
+      this.page = visiblePage - 1;
+    }
   }
 
   nextPage() {
@@ -384,6 +389,7 @@ export class TableComponent {
   private handleInputModelChanges() {
     this.sortingColumn = 0;
     this.descending = false;
+    this.page = 0;
     this.filters = Array(this.model.columns.length).fill('');
     console.time('Initial data processing');
     this.processedData = this.processModel(this.model);
