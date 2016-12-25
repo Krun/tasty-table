@@ -1,5 +1,8 @@
 # Responsive data tables
 
+See a live example of the prototype in:
+http://krun.github.io/tasty-tables/example.html
+
 This is a component for a data table which offers sorting and incremental search on all of 
 its columns.
 
