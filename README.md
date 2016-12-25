@@ -2,7 +2,7 @@
 
 ## Live demo
 See a live example of the prototype in:
-http://krun.github.io/tasty-tables/example.html
+http://krun.github.io/tasty-table/example.html
 
 ## Usage example
 See:
