@@ -16,25 +16,12 @@ import {
 } from '@angular/core';
 
 /**
- * Common interface that any custom column component should implement.
- * Generally users will extend BasicColumnComponent rather than
- * implementing this interface manually.
+ * Base column component. Any custom column component must extend or
+ * implement this class. Defines the member into which the cell data
+ * will be inserted and from which the template can read it.
  */
-export interface ColumnComponent<T> {
-  setData(data: T): void;
-}
-
-/**
- * Base class for custom column components. It provides the basic boilerplate
- * needed for a component which exports the contained data from the "data"
- * property.
- */
-export abstract class BasicColumnComponent<T> implements ColumnComponent<T> {
+export abstract class ColumnComponent<T> {
   data: T;
-
-  setData(data: T) {
-    this.data = data;
-  }
 }
 
 /**
@@ -42,21 +29,13 @@ export abstract class BasicColumnComponent<T> implements ColumnComponent<T> {
  * a complex template, and a simple transformation function (from data object
  * to string) suffices.
  */
-@Component({ template: `{{data}}` })
+@Component({ template: `{{outputData}}` })
 export class FunctionColumnComponent implements ColumnComponent<any> {
-  private dataInternal: any;
-  private func: (data: any) => string | number | boolean;
+  data: any;
+  transformFunction: (data: any) => string | number | boolean;
 
-  setData(data: any) {
-    this.dataInternal = data;
-  }
-
-  set transformFunction(func: (data: any) => string | number | boolean) {
-    this.func = func;
-  }
-
-  get data(): string {
-    return String(this.func(this.dataInternal));
+  get outputData(): string {
+    return String(this.transformFunction(this.data));
   }
 }
 
@@ -117,6 +96,11 @@ interface Row<T> {
   key: number;
 }
 
+export interface TableModel<T> {
+  columns: Column<T>[];
+  data: T[];
+}
+
 /**
  * Directive used to define insert points for table cells.
  */
@@ -168,13 +152,13 @@ export class DataTableCellInsertPoint {
   <table>
     <tr>
       <th *ngIf="selectable"></th>
-      <th *ngFor="let column of columns; let i = index" (click)="setSortingColumn(i)">
-          <span *ngIf="isSortedByColumn(i)" [textContent]="descending ? '▼' : '▲'"></span>{{column.title}}
+      <th *ngFor="let column of model.columns; let i = index" (click)="setSortingColumn(i)">
+          <span *ngIf="isSortedByColumn(i)" [textContent]="descending ? '▲' : '▼'"></span>{{column.title}}
       </th>
     </tr>
     <tr>
       <td *ngIf="selectable"></td>
-      <td *ngFor="let column of columns; let i = index">
+      <td *ngFor="let column of model.columns; let i = index">
         <input class="filter" [(ngModel)]="filters[i]" (ngModelChange)="handleFilterChanges()">
       </td>
     </tr>
@@ -182,7 +166,7 @@ export class DataTableCellInsertPoint {
       <td *ngIf="selectable">
         <input type="checkbox" [checked]="isSelected(row.key)" (change)="handleSelection(row.key)">
       </td>
-      <td *ngFor="let column of columns">
+      <td *ngFor="let column of model.columns">
         <div class="cell">
           <template data-table-cell-insert-point></template>
         </div>
@@ -197,36 +181,28 @@ export class DataTableCellInsertPoint {
   `,
 })
 export class TableComponent {
-  // Ideally, there would be a class-level generic type for the type of the data
-  // contained in the table. This would make sure that the columns are always
-  // compatible with the inserted data. However, Angular2's AOT compiler does not
-  // support generic types in components (and no support seems to be planned). So
-  // we need to define these as 'any'. If support is included in the future, simply
-  // adding the generic <T> to the class and removing it from all methods would allow
-  // changing all these 'any' to 'T' so the table is properly typed.
-
   @Input() title: string = "";
 
   /** 
-   * The data to render in the table as a list of objects. Each object corresponds
+   * The table model. Contains two members:
+   * <li>data: Data to render in the table as a list of objects. Each object corresponds
    * to a row in the table, and each cell in the row will be rendered by applying
    * a transformation to said object (which is defined by the column configuration).
-   * For better type-checks, it can be set via the setData and setDataAsync methods.
-   */
-  @Input() data: any[];
-
-  /** 
-   * The column configuration for the table. Columns can be of two types: ComponentColumn
+   * <li>columns: The column configuration for the table. Columns can be of two types: ComponentColumn
    * or FunctionColumn. ComponentColumns contain an Angular template which will be
    * rendered using the data object. FunctionColumns simply define a transformation function
    * which will return the cell content when applied to the data object.
    */
-  @Input() columns: Column<any>[];
+  @Input() model?: TableModel<any> = null;
+
+  // References to model.columns and model.data to check for changes.
+  private oldColumns: Column<any>[] = [];
+  private oldData: any[] = [];
 
   /**
    * Whether the rows of the table are selectable.
    */
-  @Input() selectable: boolean;
+  @Input() selectable: boolean = false;
 
   @Output() selectionChange = new EventEmitter<SelectionEvent>();
 
@@ -287,19 +263,12 @@ export class TableComponent {
    */
   private pVisibleRows: Row<any>[] = [];
 
-  /**
-   * Whether the table data is currently being asynchronously loaded.
-   */
-  private pLoading: boolean = false;
-
   constructor(
     private changeDetector: ChangeDetectorRef,
     private factoryResolver: ComponentFactoryResolver,
     private injector: Injector) { }
 
-  get visibleRows() : Row<any>[] { return this.pVisibleRows; }
-
-  get loading() { return this.pLoading; }
+  get visibleRows(): Row<any>[] { return this.pVisibleRows; }
 
   get numberOfPages() { return Math.ceil(this.filteredData.length / this.pageSize); }
 
@@ -312,41 +281,17 @@ export class TableComponent {
     this.page = visiblePage - 1;
   }
 
-  ngAfterViewInit() {
-    if (this.columns && this.data) {
-      this.setData({ columns: this.columns, data: this.data });
+  ngAfterViewChecked() {
+    console.log('checked');
+    if (!this.model) {
+      return;
     }
-  }
-
-  ngOnChanges() {
-    if (this.columns && this.data) {
-      this.setData({ columns: this.columns, data: this.data });
+    if (this.model.columns !== this.oldColumns || this.model.data !== this.oldData) {
+      console.log('yas');
+      this.handleInputModelChanges();
     }
-  }
-
-  /**
-   * Sets the data and the column configuration in the table. Since
-   * components with generics are not supported by Angular, using
-   * this function instead of using binding to @Input members makes
-   * sure that the column configuration is compatible with the data.
-   */
-  setData<T>({columns, data}: { columns: Column<T>[], data: T[] }) {
-    this.pLoading = false;
-    this.data = data;
-    this.columns = columns;
-    this.filters = Array(columns.length).fill('');
-    this.processedData = this.processData(data, columns);
-    this.selectionSet.clear();
-    this.updateSortingFilteringAndPaging();
-
-  }
-
-  /**
-   * Async version of {@see setData}.
-   */
-  setDataAsync<T>({columns, promise}: { columns: Column<T>[], promise: Promise<T[]> }) {
-    this.pLoading = true;
-    promise.then((data) => this.setData({ columns, data }));
+    this.oldColumns = this.model.columns;
+    this.oldData = this.model.data;
   }
 
   /**
@@ -396,11 +341,20 @@ export class TableComponent {
     this.updatePaging();
   }
 
+  private handleInputModelChanges() {
+    this.sortingColumn = 0;
+    this.descending = false;
+    this.filters = Array(this.model.columns.length).fill('');
+    this.processedData = this.processModel(this.model);
+    this.selectionSet.clear();
+    this.updateSortingFilteringAndPaging();
+  }
+
   /**
    * Updates the view. Applies sorting, filtering and paging settings.
    */
   private updateSortingFilteringAndPaging() {
-    TableComponent.sortData(this.processedData, this.sortingColumn, this.descending, this.columns[this.sortingColumn].numeric);
+    TableComponent.sortData(this.processedData, this.sortingColumn, this.descending, this.model.columns[this.sortingColumn].numeric);
     this.updateFilteringAndPaging();
   }
 
@@ -421,15 +375,12 @@ export class TableComponent {
     this.paint(TableComponent.pageData(this.filteredData, this.page, this.pageSize));
   }
 
-
   /**
    * Processes input data. Generates an internal representation of all the
-   * potential table rows, so we can perform sorting and filtering operations on
-   * the future content.
+   * table rows, so we can perform sorting and filtering operations on
+   * the generated content.
    */
-  private processData<T>(data: T[], columns: Column<T>[]): Row<T>[] {
-    const processedData: Row<T>[] = [];
-    let rowKey = 0;
+  private processModel<T>({data, columns}: TableModel<T>): Row<T>[] {
     const genFunctions: ((data: T) => string)[] = [];
     const componentRefs: ComponentRef<ColumnComponent<T>>[] = [];
     for (let column of columns) {
@@ -439,7 +390,7 @@ export class TableComponent {
         const componentRef = factory.create(this.injector, null, element);
         componentRefs.push(componentRef);
         const genFunction = (data: T) => {
-          componentRef.instance.setData(data);
+          componentRef.instance.data = data;
           componentRef.changeDetectorRef.detectChanges();
           return element.textContent;
         }
@@ -451,14 +402,12 @@ export class TableComponent {
         throw new Error('Assertion error: Unexpected column object.');
       }
     }
-    for (let datum of data) {
-      const row: Row<T> = {
-        textContent: genFunctions.map((func) => func(datum)),
-        key: rowKey++,
-        data: datum
-      };
-      processedData.push(row);
-    }
+
+    const processedData = data.map((data, key) => ({
+      textContent: genFunctions.map((func) => func(data)),
+      key,
+      data,
+    }));
     componentRefs.forEach((ref) => ref.destroy());
     return processedData;
   }
@@ -469,31 +418,28 @@ export class TableComponent {
   private paint<T>(rows: Row<T>[]) {
     this.pVisibleRows = rows;
     this.changeDetector.detectChanges();
-    const insertPoints = this.insertPoints.toArray();
+    const insertPoints = this.insertPoints.toArray().reverse();
     insertPoints.forEach((insertPoint) => insertPoint.viewContainerRef.clear());
-
-    let cellIndex = 0;
     for (let row of rows) {
-      for (let column of this.columns) {
-        const insertPoint = insertPoints[cellIndex];
+      for (let column of this.model.columns) {
+        const insertPoint = insertPoints.pop();
         let ref: ComponentRef<ColumnComponent<T> | FunctionColumnComponent>;
         if (isComponentColumn(column)) {
           const factory = this.factoryResolver.resolveComponentFactory(column.component);
           const compRef = insertPoint.viewContainerRef.createComponent(factory);
-          compRef.instance.setData(row.data);
+          compRef.instance.data = row.data;
           ref = compRef;
         } else if (isFunctionColumn(column)) {
           const factory = this.factoryResolver.resolveComponentFactory(FunctionColumnComponent);
           const compRef = insertPoint.viewContainerRef.createComponent(factory);
           compRef.instance.transformFunction = column.func;
-          compRef.instance.setData(row.data);
+          compRef.instance.data = row.data;
           ref = compRef;
         } else {
           throw new Error('Assertion error: Unexpected column object.');
         }
         ref.changeDetectorRef.detectChanges();
         ref.changeDetectorRef.detach();
-        cellIndex++;
       }
     }
   }
