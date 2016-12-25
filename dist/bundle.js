@@ -26,7 +26,7 @@ var Column1 = (function (_super) {
         _super.apply(this, arguments);
     }
     Column1 = __decorate([
-        core_1.Component({ template: '{{data.first}}' }), 
+        core_1.Component({ template: 'ID: {{data.userId}}' }), 
         __metadata('design:paramtypes', [])
     ], Column1);
     return Column1;
@@ -41,9 +41,7 @@ var Column2 = (function (_super) {
         _super.apply(this, arguments);
     }
     Column2 = __decorate([
-        core_1.Component({
-            template: "\n  <p>{{data.third.toString()}}</p>\n  <ul><li *ngFor=\"let s of data.third\">{{s}}</li></ul>"
-        }), 
+        core_1.Component({ template: '<ul><li *ngFor="let id of data.serviceIds">Service {{id}}</li></ul>' }), 
         __metadata('design:paramtypes', [])
     ], Column2);
     return Column2;
@@ -55,18 +53,17 @@ exports.Column2 = Column2;
 var Column3 = (function () {
     function Column3() {
     }
-    Object.defineProperty(Column3.prototype, "myData", {
+    Object.defineProperty(Column3.prototype, "paddedId", {
         get: function () {
-            return {
-                a: this.data.first * 2,
-                b: String(this.data.first)
-            };
+            var id = String(this.data.userId);
+            var pad = "000000";
+            return pad.substring(0, pad.length - id.length) + id;
         },
         enumerable: true,
         configurable: true
     });
     Column3 = __decorate([
-        core_1.Component({ template: '<p>{{myData.a}} - {{myData.b}}</p>' }), 
+        core_1.Component({ template: '<p>{{paddedId}}</p>' }), 
         __metadata('design:paramtypes', [])
     ], Column3);
     return Column3;
@@ -77,42 +74,65 @@ var AppComponent = (function () {
         this.changeDetector = changeDetector;
         this.selectable = true;
         this.numberOfRows = 5000;
+        this.selectedKeys = [];
+        this.selectionEvents = [];
         this.tableModel = {
             columns: [
-                // By setting numeric: true the column will be sorted numerically
-                { title: "Column 1", component: Column1, numeric: true },
-                { title: "Column 2", component: Column2 },
-                { title: "Column 3", component: Column3 },
+                // With numeric = true the column will be sorted numerically even if it contains strings
+                { title: "User ID", component: Column1, numeric: true },
+                { title: "Services", component: Column2 },
+                { title: "Padded ID", component: Column3 },
                 // For simple data types, instead of a template component we can simply define
                 // a function which will yield the cell content.
                 // This is way more efficient, by the way!
-                { title: "Column 4", func: function (x) { return x.second; } },
-                { title: "Column 5", func: function (x) { return x.first; } },
+                { title: "Password", func: function (x) { return x.userName; } },
+                // If a function extracts a number, sorting will be automatically numeric.
+                { title: "Raw ID", func: function (x) { return x.userId; } },
+                // A lot of things can be done with simple functions
+                { title: "Even ID?", func: function (x) { return Boolean(x.userId % 2); } }
             ],
-            data: []
+            data: generateRandomData(this.numberOfRows),
         };
     }
     AppComponent.prototype.tableSelect = function (event) {
-        // We can listen to selections in table rows.
-        console.log(event);
-    };
-    AppComponent.prototype.ngAfterViewInit = function () {
-        this.updateData();
+        this.selectedKeys = Array.from(event.selectedKeys.values());
+        this.selectionEvents.push(String(event.changedKey) + ' has been ' + (event.newValue ? 'selected' : 'unselected'));
     };
     AppComponent.prototype.updateData = function () {
-        this.tableModel.data = Array(this.numberOfRows).fill(0).map(function (_, i) { return ({ first: i, second: "b" + (3000 - i), third: ["a" + i, "b" + i] }); });
+        this.tableModel.data = generateRandomData(this.numberOfRows);
         this.changeDetector.detectChanges();
     };
     AppComponent = __decorate([
         core_1.Component({
             selector: 'my-app',
-            template: "\n    <h1>Responsive Data Tables</h1>\n    Number of data rows: <input [(ngModel)]=\"numberOfRows\" type=\"number\"><button (click)=\"updateData()\">update</button>\n    <label> With checkboxes <input type=\"checkbox\" [(ngModel)]=\"selectable\"></label>\n    <data-table title=\"Example\" [model]=\"tableModel\" [selectable]=\"selectable\" (selectionChange)=\"tableSelect($event)\"></data-table>\n  ",
+            styles: ['* {font-family: sans-serif;}'],
+            template: "\n    <h1>Responsive Data Tables</h1>\n    Number of data rows: <input [(ngModel)]=\"numberOfRows\" type=\"number\"><button (click)=\"updateData()\">update</button>\n    <label> With checkboxes <input type=\"checkbox\" [(ngModel)]=\"selectable\"></label>\n    <data-table title=\"Some data\" [model]=\"tableModel\" [selectable]=\"selectable\" (selectionChange)=\"tableSelect($event)\"></data-table>\n    <h2>Selection events</h2>\n    <p><b>Selected keys:</b> <span *ngFor=\"let key of selectedKeys\">{{key}},</span></p>\n    <ul>\n    <li *ngFor=\"let event of selectionEvents\">{{event}}</li>\n    </ul>\n  ",
         }), 
         __metadata('design:paramtypes', [core_1.ChangeDetectorRef])
     ], AppComponent);
     return AppComponent;
 }());
 exports.AppComponent = AppComponent;
+function randomString() {
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    return Array(5)
+        .fill(0)
+        .map(function (x) { return Math.floor(Math.random() * possible.length); })
+        .map(function (x) { return possible.charAt(x); })
+        .join('');
+}
+function generateRandomData(length) {
+    console.time('Generating random data');
+    var r = Array(length)
+        .fill(0)
+        .map(function (_, i) { return ({
+        userId: i,
+        userName: randomString(),
+        serviceIds: [500 + i, i + i]
+    }); });
+    console.timeEnd('Generating random data');
+    return r;
+}
 
 },{"./table.component":4,"@angular/core":8}],2:[function(require,module,exports){
 "use strict";
@@ -296,6 +316,13 @@ var TableComponent = (function () {
         enumerable: true,
         configurable: true
     });
+    Object.defineProperty(TableComponent.prototype, "fillerRows", {
+        get: function () {
+            return Array(this.pageSize - this.pVisibleRows.length).fill(null);
+        },
+        enumerable: true,
+        configurable: true
+    });
     Object.defineProperty(TableComponent.prototype, "numberOfPages", {
         get: function () { return Math.ceil(this.filteredData.length / this.pageSize); },
         enumerable: true,
@@ -313,13 +340,19 @@ var TableComponent = (function () {
         enumerable: true,
         configurable: true
     });
+    TableComponent.prototype.nextPage = function () {
+        this.visiblePage++;
+        this.updatePaging();
+    };
+    TableComponent.prototype.previousPage = function () {
+        this.visiblePage--;
+        this.updatePaging();
+    };
     TableComponent.prototype.ngAfterViewChecked = function () {
-        console.log('checked');
         if (!this.model) {
             return;
         }
         if (this.model.columns !== this.oldColumns || this.model.data !== this.oldData) {
-            console.log('yas');
             this.handleInputModelChanges();
         }
         this.oldColumns = this.model.columns;
@@ -340,6 +373,15 @@ var TableComponent = (function () {
             selectedKeys: new Set(this.selectionSet),
             changedKey: rowKey,
             newValue: this.isSelected(rowKey),
+        });
+    };
+    /**
+     * Resets the row selection.
+     */
+    TableComponent.prototype.resetSelection = function () {
+        this.selectionSet.clear();
+        this.selectionChange.emit({
+            selectedKeys: new Set()
         });
     };
     /**
@@ -370,15 +412,19 @@ var TableComponent = (function () {
         this.sortingColumn = 0;
         this.descending = false;
         this.filters = Array(this.model.columns.length).fill('');
+        console.time('Initial data processing');
         this.processedData = this.processModel(this.model);
-        this.selectionSet.clear();
+        console.timeEnd('Initial data processing');
+        this.resetSelection();
         this.updateSortingFilteringAndPaging();
     };
     /**
      * Updates the view. Applies sorting, filtering and paging settings.
      */
     TableComponent.prototype.updateSortingFilteringAndPaging = function () {
+        console.time('Sorting data');
         TableComponent.sortData(this.processedData, this.sortingColumn, this.descending, this.model.columns[this.sortingColumn].numeric);
+        console.timeEnd('Sorting data');
         this.updateFilteringAndPaging();
     };
     /**
@@ -386,7 +432,9 @@ var TableComponent = (function () {
      * existing sorting.
      */
     TableComponent.prototype.updateFilteringAndPaging = function () {
+        console.time('Filtering data');
         this.filteredData = TableComponent.filterData(this.processedData, this.filters);
+        console.timeEnd('Filtering data');
         this.updatePaging();
     };
     /**
@@ -419,8 +467,7 @@ var TableComponent = (function () {
                 genFunctions.push(genFunction);
             }
             else if (isFunctionColumn(column)) {
-                var func_1 = column.func;
-                genFunctions.push(function (data) { return String(func_1(data)); });
+                genFunctions.push(column.func);
             }
             else {
                 throw new Error('Assertion error: Unexpected column object.');
@@ -432,7 +479,7 @@ var TableComponent = (function () {
             _loop_1(column);
         }
         var processedData = data.map(function (data, key) { return ({
-            textContent: genFunctions.map(function (func) { return func(data); }),
+            content: genFunctions.map(function (func) { return func(data); }),
             key: key,
             data: data,
         }); });
@@ -481,7 +528,7 @@ var TableComponent = (function () {
         var res = filters.map(function (search) { return search ? new RegExp(search) : null; });
         return rows.filter(function (row) {
             var failPredicate = function (re, i) {
-                return re != null && !re.test(row.textContent[i]);
+                return re != null && !re.test(String(row.content[i]));
             };
             return !res.some(failPredicate);
         });
@@ -505,18 +552,24 @@ var TableComponent = (function () {
     TableComponent.sortData = function (rows, i, descending, numeric) {
         if (numeric === void 0) { numeric = false; }
         var compareFunction = function (a, b) {
-            var val1;
-            var val2;
-            if (numeric) {
-                val1 = parseInt(a.textContent[i], 10);
-                val2 = parseInt(b.textContent[i], 10);
-            }
-            else {
-                val1 = a.textContent[i];
-                val2 = b.textContent[i];
-            }
+            var val1 = a.content[i];
+            var val2 = b.content[i];
+            // Remove all the characters until the first number
+            var nonNumericPrefixRegexp = /^[^0-9]+/;
+            // parseFloat will extract as much as it can from the beginning of the string
+            var numVal1 = parseFloat(String(val1).replace(nonNumericPrefixRegexp, ''));
+            var numVal2 = parseFloat(String(val2).replace(nonNumericPrefixRegexp, ''));
             var multiplier = descending ? -1 : 1;
-            return (val1 > val2) ? multiplier : -multiplier;
+            if (numeric && (numVal1 > numVal2))
+                return multiplier;
+            if (numeric && (numVal1 < numVal2))
+                return -multiplier;
+            // If numeric comparison is the same, fallback to non-numeric
+            if (val1 > val2)
+                return multiplier;
+            if (val1 < val2)
+                return -multiplier;
+            return 0;
         };
         rows.sort(compareFunction);
     };
@@ -543,8 +596,8 @@ var TableComponent = (function () {
     TableComponent = __decorate([
         core_1.Component({
             selector: 'data-table',
-            styles: ["\n    * {\n      font-family: sans-serif;\n    }\n    input {\n      border: 1px solid #ccc;\n    }\n    table {\n      border-collapse: collapse;\n      width: 100%;\n    }\n    td, th {\n      font-size: .9em;\n      border-top: 1px solid grey;\n      border-bottom: 1px solid grey;\n    }\n    .cell {\n      padding: 10px;\n    }\n    .cell >>> ul {\n      margin: 0;\n      padding: 0;\n    }\n    .wrapper {\n      border: 1px solid grey;\n      display: inline-block;\n    }\n    .filter {\n      width: 100px;\n    }\n    .pager {\n      width: 40px;\n    }\n  "],
-            template: "\n  <div><div class=\"wrapper\">\n  <h1>{{title}}</h1>\n  <table>\n    <tr>\n      <th *ngIf=\"selectable\"></th>\n      <th *ngFor=\"let column of model.columns; let i = index\" (click)=\"setSortingColumn(i)\">\n          <span *ngIf=\"isSortedByColumn(i)\" [textContent]=\"descending ? '\u25B2' : '\u25BC'\"></span>{{column.title}}\n      </th>\n    </tr>\n    <tr>\n      <td *ngIf=\"selectable\"></td>\n      <td *ngFor=\"let column of model.columns; let i = index\">\n        <input class=\"filter\" [(ngModel)]=\"filters[i]\" (ngModelChange)=\"handleFilterChanges()\">\n      </td>\n    </tr>\n    <tr *ngFor=\"let row of visibleRows\">\n      <td *ngIf=\"selectable\">\n        <input type=\"checkbox\" [checked]=\"isSelected(row.key)\" (change)=\"handleSelection(row.key)\">\n      </td>\n      <td *ngFor=\"let column of model.columns\">\n        <div class=\"cell\">\n          <template data-table-cell-insert-point></template>\n        </div>\n      </td>\n    </tr>\n  </table>\n  <input class=\"pager\" [(ngModel)]=\"pageSize\" (ngModelChange)=\"handlePagingChanges()\" type=\"number\">\n  rows per page |\n  <input class=\"pager\" [(ngModel)]=\"visiblePage\" (ngModelChange)=\"handlePagingChanges()\" type=\"number\">\n  of {{numberOfPages}} pages\n  </div></div>\n  ",
+            styles: ["\n    * {\n      font-family: sans-serif;\n    }\n    input {\n      border: 1px solid #ccc;\n    }\n    table {\n      border-collapse: collapse;\n      width: 100%;\n    }\n    td, th {\n      color: #333;\n      font-size: .8em;\n      border-top: 1px solid #ccc;\n      border-bottom: 1px solid #ccc;\n    }\n    td.empty {\n      height: 40px;\n      border-width: 0;\n    }\n    .cell, th {\n      padding: 10px;\n    }\n    .cell >>> ul {\n      margin: 0;\n      padding: 0;\n    }\n    .wrapper {\n      border: 1px solid #ccc;\n      display: inline-block;\n    }\n    .filter {\n      width: 100px;\n    }\n    .pager {\n      margin: 5px;\n      width: 40px;\n    }\n  "],
+            template: "\n  <div><div class=\"wrapper\">\n  <h2>{{title}}</h2>\n  <table>\n    <tr>\n      <th *ngIf=\"selectable\"></th>\n      <th *ngFor=\"let column of model.columns; let i = index\" (click)=\"setSortingColumn(i)\">\n          <span *ngIf=\"isSortedByColumn(i)\" [textContent]=\"descending ? '\u25B2' : '\u25BC'\"></span>{{column.title}}\n      </th>\n    </tr>\n    <tr>\n      <td *ngIf=\"selectable\"></td>\n      <td *ngFor=\"let column of model.columns; let i = index\">\n        <input class=\"filter\" [(ngModel)]=\"filters[i]\" (ngModelChange)=\"handleFilterChanges()\">\n      </td>\n    </tr>\n    <tr *ngFor=\"let row of visibleRows\">\n      <td *ngIf=\"selectable\">\n        <input type=\"checkbox\" [checked]=\"isSelected(row.key)\" (change)=\"handleSelection(row.key)\">\n      </td>\n      <td *ngFor=\"let column of model.columns\">\n        <div class=\"cell\">\n          <template data-table-cell-insert-point></template>\n        </div>\n      </td>\n    </tr>\n    <tr *ngFor=\"let row of fillerRows\">\n      <td *ngIf=\"selectable\" class=\"empty\"></td>\n      <td *ngFor=\"let column of model.columns\" class=\"empty\"></td>\n    </tr>\n  </table>\n  <input class=\"pager\" [(ngModel)]=\"pageSize\" (ngModelChange)=\"handlePagingChanges()\" type=\"number\">\n  rows per page |\n  <input class=\"pager\" [(ngModel)]=\"visiblePage\" (ngModelChange)=\"handlePagingChanges()\" type=\"number\">\n  of {{numberOfPages}} pages |\n  <button (click)=\"previousPage()\">Previous</button>\n  <button (click)=\"nextPage()\">Next</button>\n  </div></div>\n  ",
         }), 
         __metadata('design:paramtypes', [core_1.ChangeDetectorRef, core_1.ComponentFactoryResolver, core_1.Injector])
     ], TableComponent);

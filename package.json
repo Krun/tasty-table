@@ -12,7 +12,11 @@
     "test": "tsc && concurrently \"tsc -w\" \"karma start karma.conf.js\"",
     "test-once": "tsc && karma start karma.conf.js --single-run",
     "tsc": "tsc",
-    "tsc:w": "tsc -w"
+    "tsc-aot": "tsc -p tsconfig-aot.json",
+    "tsc:w": "tsc -w",
+    "aot": "./node_modules/.bin/ngc -p tsconfig-aot.json",
+    "rollup": "rollup -f iife -c rollup.config.js -o dist/bundle.aot.js",
+    "build_aot": "npm run aot && npm run tsc && browserify -s main app/mainaot.js > dist/bundle.aot.js"
   },
   "keywords": [],
   "author": "",

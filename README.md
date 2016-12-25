@@ -13,8 +13,7 @@ dozens of thousands of rows (considering worst case: complex templates with comp
 
 Every column can define its own template. Defining how each input object is represented.
 
-It supports complex column templates, defined as Angular components (very efficient with AOT 
-compilation).
+It supports complex column templates, defined as Angular components.
 
 ```
 @Component({

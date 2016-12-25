@@ -15,6 +15,14 @@ import {
   EventEmitter,
 } from '@angular/core';
 
+type Column<T> = FunctionColumn<T> | ComponentColumn<T>;
+
+/** 
+ * Canonical representation of the value of a cell. This value is used
+ * for sorting and filtering purposes.
+ */
+type CellContent = string | number | boolean;
+
 /**
  * Base column component. Any custom column component must extend or
  * implement this class. Defines the member into which the cell data
@@ -32,7 +40,7 @@ export abstract class ColumnComponent<T> {
 @Component({ template: `{{outputData}}` })
 export class FunctionColumnComponent implements ColumnComponent<any> {
   data: any;
-  transformFunction: (data: any) => string | number | boolean;
+  transformFunction: (data: any) => CellContent;
 
   get outputData(): string {
     return String(this.transformFunction(this.data));
@@ -55,13 +63,11 @@ interface ComponentColumn<T> {
  * rendered simply by applying a transformation function to the input data.
  */
 interface FunctionColumn<T> {
-  func: (data: T) => string | number | boolean;
+  func: (data: T) => CellContent;
   title: string;
   /** Whether the contents of this column must be sorted numerically instead of alphabetically. */
   numeric?: boolean;
 }
-
-type Column<T> = FunctionColumn<T> | ComponentColumn<T>;
 
 function isComponentColumn<T>(column: Column<T>): column is ComponentColumn<T> {
   return (<ComponentColumn<T>>column).component != undefined;
@@ -83,15 +89,15 @@ export interface SelectionEvent {
   /**
    * The key whose selection status has been changed in this event.
    */
-  changedKey: number;
+  changedKey?: number;
   /**
    * The new value for the key changed in this event.
    */
-  newValue: boolean;
+  newValue?: boolean;
 }
 
 interface Row<T> {
-  textContent: string[];
+  content: CellContent[];
   data: T;
   key: number;
 }
@@ -124,11 +130,16 @@ export class DataTableCellInsertPoint {
       width: 100%;
     }
     td, th {
-      font-size: .9em;
-      border-top: 1px solid grey;
-      border-bottom: 1px solid grey;
+      color: #333;
+      font-size: .8em;
+      border-top: 1px solid #ccc;
+      border-bottom: 1px solid #ccc;
     }
-    .cell {
+    td.empty {
+      height: 40px;
+      border-width: 0;
+    }
+    .cell, th {
       padding: 10px;
     }
     .cell >>> ul {
@@ -136,19 +147,20 @@ export class DataTableCellInsertPoint {
       padding: 0;
     }
     .wrapper {
-      border: 1px solid grey;
+      border: 1px solid #ccc;
       display: inline-block;
     }
     .filter {
       width: 100px;
     }
     .pager {
+      margin: 5px;
       width: 40px;
     }
   `],
   template: `
   <div><div class="wrapper">
-  <h1>{{title}}</h1>
+  <h2>{{title}}</h2>
   <table>
     <tr>
       <th *ngIf="selectable"></th>
@@ -172,11 +184,17 @@ export class DataTableCellInsertPoint {
         </div>
       </td>
     </tr>
+    <tr *ngFor="let row of fillerRows">
+      <td *ngIf="selectable" class="empty"></td>
+      <td *ngFor="let column of model.columns" class="empty"></td>
+    </tr>
   </table>
   <input class="pager" [(ngModel)]="pageSize" (ngModelChange)="handlePagingChanges()" type="number">
   rows per page |
   <input class="pager" [(ngModel)]="visiblePage" (ngModelChange)="handlePagingChanges()" type="number">
-  of {{numberOfPages}} pages
+  of {{numberOfPages}} pages |
+  <button (click)="previousPage()">Previous</button>
+  <button (click)="nextPage()">Next</button>
   </div></div>
   `,
 })
@@ -270,6 +288,10 @@ export class TableComponent {
 
   get visibleRows(): Row<any>[] { return this.pVisibleRows; }
 
+  get fillerRows(): null[] {
+    return Array(this.pageSize - this.pVisibleRows.length).fill(null);
+  }
+
   get numberOfPages() { return Math.ceil(this.filteredData.length / this.pageSize); }
 
   /** Public 1-based representation of the current page. */
@@ -281,13 +303,21 @@ export class TableComponent {
     this.page = visiblePage - 1;
   }
 
+  nextPage() {
+    this.visiblePage++;
+    this.updatePaging();
+  }
+
+  previousPage() {
+    this.visiblePage--;
+    this.updatePaging();
+  }
+
   ngAfterViewChecked() {
-    console.log('checked');
     if (!this.model) {
       return;
     }
     if (this.model.columns !== this.oldColumns || this.model.data !== this.oldData) {
-      console.log('yas');
       this.handleInputModelChanges();
     }
     this.oldColumns = this.model.columns;
@@ -310,6 +340,16 @@ export class TableComponent {
       selectedKeys: new Set(this.selectionSet),
       changedKey: rowKey,
       newValue: this.isSelected(rowKey),
+    })
+  }
+
+  /**
+   * Resets the row selection.
+   */
+  resetSelection() {
+    this.selectionSet.clear();
+    this.selectionChange.emit({
+      selectedKeys: new Set()
     })
   }
 
@@ -345,8 +385,10 @@ export class TableComponent {
     this.sortingColumn = 0;
     this.descending = false;
     this.filters = Array(this.model.columns.length).fill('');
+    console.time('Initial data processing');
     this.processedData = this.processModel(this.model);
-    this.selectionSet.clear();
+    console.timeEnd('Initial data processing');
+    this.resetSelection();
     this.updateSortingFilteringAndPaging();
   }
 
@@ -354,7 +396,9 @@ export class TableComponent {
    * Updates the view. Applies sorting, filtering and paging settings.
    */
   private updateSortingFilteringAndPaging() {
+    console.time('Sorting data');
     TableComponent.sortData(this.processedData, this.sortingColumn, this.descending, this.model.columns[this.sortingColumn].numeric);
+    console.timeEnd('Sorting data');
     this.updateFilteringAndPaging();
   }
 
@@ -363,7 +407,9 @@ export class TableComponent {
    * existing sorting.
    */
   private updateFilteringAndPaging() {
+    console.time('Filtering data');
     this.filteredData = TableComponent.filterData(this.processedData, this.filters);
+    console.timeEnd('Filtering data');
     this.updatePaging();
   }
 
@@ -381,7 +427,7 @@ export class TableComponent {
    * the generated content.
    */
   private processModel<T>({data, columns}: TableModel<T>): Row<T>[] {
-    const genFunctions: ((data: T) => string)[] = [];
+    const genFunctions: ((data: T) => CellContent)[] = [];
     const componentRefs: ComponentRef<ColumnComponent<T>>[] = [];
     for (let column of columns) {
       if (isComponentColumn(column)) {
@@ -396,15 +442,14 @@ export class TableComponent {
         }
         genFunctions.push(genFunction);
       } else if (isFunctionColumn(column)) {
-        const func = column.func;
-        genFunctions.push((data: T) => String(func(data)));
+        genFunctions.push(column.func);
       } else {
         throw new Error('Assertion error: Unexpected column object.');
       }
     }
 
     const processedData = data.map((data, key) => ({
-      textContent: genFunctions.map((func) => func(data)),
+      content: genFunctions.map((func) => func(data)),
       key,
       data,
     }));
@@ -451,7 +496,7 @@ export class TableComponent {
     const res = filters.map((search) => search ? new RegExp(search) : null);
     return rows.filter((row: Row<T>) => {
       const failPredicate = (re: RegExp, i: number) => {
-        return re != null && !re.test(row.textContent[i]);
+        return re != null && !re.test(String(row.content[i]));
       };
       return !res.some(failPredicate);
     });
@@ -476,18 +521,23 @@ export class TableComponent {
    */
   private static sortData<T>(rows: Row<T>[], i: number, descending: boolean, numeric: boolean = false) {
     const compareFunction = (a: Row<T>, b: Row<T>) => {
-      let val1: number | string;
-      let val2: number | string;
-      if (numeric) {
-        val1 = parseInt(a.textContent[i], 10);
-        val2 = parseInt(b.textContent[i], 10);
-      } else {
-        val1 = a.textContent[i];
-        val2 = b.textContent[i];
-      }
+      const val1 = a.content[i];
+      const val2 = b.content[i];
+      // Remove all the characters until the first number
+      const nonNumericPrefixRegexp = /^[^0-9]+/;
+      // parseFloat will extract as much as it can from the beginning of the string
+      const numVal1 = parseFloat(String(val1).replace(nonNumericPrefixRegexp, ''));
+      const numVal2 = parseFloat(String(val2).replace(nonNumericPrefixRegexp, ''));
       const multiplier = descending ? -1 : 1;
-      return (val1 > val2) ? multiplier : -multiplier;
+      if (numeric && (numVal1 > numVal2)) return multiplier;
+      if (numeric && (numVal1 < numVal2)) return -multiplier;
+      // If numeric comparison is the same, fallback to non-numeric
+      if (val1 > val2) return multiplier;
+      if (val1 < val2) return -multiplier;
+      return 0;
     };
     rows.sort(compareFunction);
   }
 }
+
+
